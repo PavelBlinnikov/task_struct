@@ -11,6 +11,8 @@ def dummy_entropy(number):
 	return count
 
 class task_off(gdb.Command):
+	tasks = []
+
 	def __init__(self):
 		gdb.Command.__init__(self, "task_off", gdb.COMMAND_USER)
 	
@@ -34,6 +36,7 @@ class task_off(gdb.Command):
 						print(f"[+++] Highly likely offset is ", end='')
 					else:
 						print(f"[*] Possible offset is ", end='')
+					self.tasks.append(i * 8)
 					print(f"{hex(i * 8)} and addr is {hex(addr + (i * 8))}")
 			except gdb.MemoryError:
 				pass
@@ -50,8 +53,22 @@ class task_off(gdb.Command):
 		for i in range(0x400):
 			try:
 				if b'swapper' in (gdb.selected_inferior().read_memory(addr + (i * 8), 8).tobytes()):
-					print(f"[+++++] Offset to COMM is {hex((i) * 8)} and addr is {hex(addr + ((i) * 8))}")
+					print(f"[+++++] Offset to COMM[!!!] is {hex((i) * 8)} and addr is {hex(addr + ((i) * 8))}")
 					print(f"[*****] Please be careful that this is not the address of struct cred*. It is somewhere near.")
+			except gdb.MemoryError:
+				pass
+	
+	def verify_tasks(self, addr):
+		for i in self.tasks:
+			try:
+				next_addr = self.read(addr + i) - i
+				for j in range(0x400):
+					cur = self.read(next_addr + (j * 8))
+					if cur == 0x0000000100000001:
+						temp = self.read(addr + (j * 8))
+						if temp == 0:
+							print(f"[+++++] Extremely likely that {hex(i)} is the offset for TASKS")
+							print(f"        and {hex(j * 8)} is the offset for PID")
 			except gdb.MemoryError:
 				pass
 
@@ -63,12 +80,12 @@ class task_off(gdb.Command):
 		task = int(args[0], 16)
 		print("\t\t[***] TASKS OFFSET [***]")
 		self.find_tasks(task)
-		print('')
-		print("\t\t[***] PID OFFSET [***]")
+		print("\n\t\t[***] PID OFFSET [***]")
 		self.find_pid(task)
-		print('')
-		print("\t\t[***] CRED OFFSET [***]")
+		print("\n\t\t[***] CRED OFFSET [***]")
 		self.find_cred(task)
-
+		print('\n\t\t[***] VERIFICATION [***]')
+		self.verify_tasks(task)
+		
 		
 task_off()
