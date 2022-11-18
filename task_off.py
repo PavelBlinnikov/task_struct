@@ -27,7 +27,9 @@ class task_off(gdb.Command):
 				cur = self.read(addr + (i * 8))
 				self.read(cur)
 				prev_cur = self.read(cur + 8)
-				if prev_cur == (addr + (i * 8)):
+				next_cur = self.read(cur)
+				prev_next_cur = self.read(next_cur + 8)
+				if prev_cur == (addr + (i * 8)) and prev_next_cur == cur:
 					if cur>>32 != base:
 						print(f"[+++] Highly likely offset is ", end='')
 					else:
